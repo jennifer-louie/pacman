@@ -26,6 +26,7 @@ window.onload = function() {
     loadImages();
     loadMap();
     update();
+    addEventListener('keyup', movePacman); 
 }
 
 // game layout
@@ -140,13 +141,14 @@ function loadMap() {
 
 // update game layout
 function update() {
+    move();
     draw();
     setTimeout(update, 50); // update at 20 FPS, 1 second = 1000 ms, 1000/20 = 50ms
-
 }
 
 // display game graphics
 function draw() {
+    context.clearRect(0, 0, board.width, board.height); // clear previous graphics
     // pacman
     context.drawImage(pacman.image, pacman.x, pacman.y, pacman.width, pacman.height);
 
@@ -166,6 +168,60 @@ function draw() {
     }
 }
 
+// update x and y position of Pacman
+function move() {
+    pacman.x += pacman.velocityX;
+    pacman.y += pacman.velocityY;
+
+    // check wall collisions
+    for (let wall of walls.values()) {
+        if (collision(pacman, wall)) {
+            pacman.x -= pacman.velocityX;
+            pacman.y -= pacman.velocityY;
+            break;
+        }
+    }
+}
+
+// move Pacman based on key press
+function movePacman(e) {
+    if (e.code == 'ArrowUp' || e.code == 'KeyW') { // up
+        pacman.updateDirection('U');
+    }
+    else if (e.code == 'ArrowDown' || e.code == 'KeyS') { // down
+        pacman.updateDirection('D');
+    }
+    else if (e.code == 'ArrowLeft' || e.code == "KeyA") { // left
+        pacman.updateDirection('L');
+    }
+    else if (e.code == 'ArrowRight' || e.code == "KeyD") { // right
+        pacman.updateDirection('R');
+    }
+
+    // update Pacman image
+    if (pacman.direction == 'U') { // up
+        pacman.image = pacmanUpImage;
+    }
+    else if (pacman.direction == 'D') { // down
+        pacman.image = pacmanDownImage;
+    }
+    else if (pacman.direction == 'L') { // left
+        pacman.image = pacmanLeftImage;
+    }
+    else if (pacman.direction == 'R') { // right
+        pacman.image = pacmanRightImage;
+    }
+}
+
+// check collision between Block a and Block b
+function collision(a, b) {
+    // collision happens when there's an intersection of two Blocks
+    return  a.x < b.x + b.width &&
+            a.x + a.width > b.x &&
+            a.y < b.y + b.height &&
+            a.y + a.height > b.y;
+}
+
 // represents each tile on game board
 class Block {
     constructor(image, x, y, width, height) {
@@ -178,5 +234,48 @@ class Block {
         // original position
         this.startX = x;
         this.startY = y;
+
+        this.direction = 'R'; // right
+        this.velocityX = 0;
+        this.velocityY = 0;
+    }
+
+    updateDirection(direction) {
+        const prevDirection = this.direction;
+        this.direction = direction;
+        this.updateVelocity();
+        this.x += this.velocityX;
+        this.y += this.velocityY;
+
+        // check if moving in direction where there's a wall in the way
+        for (let wall of walls.values()) {
+            if (collision(this, wall)) { // wall in the way, step back to previous position
+                this.x -= this.velocityX;
+                this.y -= this.velocityY;
+                this.direction = prevDirection;
+                this.updateVelocity();
+                return;
+            }
+        }
+    }
+
+    updateVelocity() {
+        if (this.direction == 'U') { // moving up
+            this.velocityX = 0;
+            this.velocityY = -tileSize/4;
+        }
+        else if (this.direction == 'D') { // moving down
+            this.velocityX = 0;
+            this.velocityY = tileSize/4;
+        }
+        else if (this.direction == 'L') { // moving left
+            this.velocityX = -tileSize/4;
+            this.velocityY = 0;
+        }
+        else if (this.direction == 'R') { // moving right
+            this.velocityX = tileSize/4;
+            this.velocityY = 0;
+        }
+
     }
 }
