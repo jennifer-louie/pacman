@@ -7,28 +7,6 @@ const boardWidth = columnCount * tileSize;
 const boardHeight = rowCount * tileSize;
 let context;
 
-//images
-let blueGhostImage;
-let orangeGhostImage;
-let pinkGhostImage;
-let redGhostImage;
-let pacmanUpImage;
-let pacmanDownImage;
-let pacmanLeftImage;
-let pacmanRightImage;
-let wallImage;
-
-window.onload = function() {
-    board = document.getElementById("board");
-    board.height = boardHeight;
-    board.width = boardWidth;
-    context = board.getContext("2d"); // for drawing on board
-    loadImages();
-    loadMap();
-    update();
-    addEventListener('keyup', movePacman); 
-}
-
 // game layout
 const tileMap = [
     "XXXXXXXXXXXXXXXXXXX",
@@ -58,7 +36,36 @@ const walls = new Set();
 const foods = new Set(); 
 const ghosts = new Set();
 let pacman;
+const directions = ['U', 'D', 'L', 'R'];
 
+//images
+let blueGhostImage;
+let orangeGhostImage;
+let pinkGhostImage;
+let redGhostImage;
+let pacmanUpImage;
+let pacmanDownImage;
+let pacmanLeftImage;
+let pacmanRightImage;
+let wallImage;
+
+window.onload = function() {
+    board = document.getElementById("board");
+    board.height = boardHeight;
+    board.width = boardWidth;
+    context = board.getContext("2d"); // for drawing on board
+    loadImages();
+    loadMap();
+
+    // assign random direction to ghosts
+    for (let ghost of ghosts.values()) {
+        const newDirection = directions[Math.floor(Math.random() * 4)]; // 0-3
+        ghost.updateDirection(newDirection);
+    }
+
+    update();
+    addEventListener('keyup', movePacman); 
+}
 
 // load images for game
 function loadImages() {
@@ -179,6 +186,30 @@ function move() {
             pacman.x -= pacman.velocityX;
             pacman.y -= pacman.velocityY;
             break;
+        }
+    }
+
+    for (let ghost of ghosts.values()) {
+
+        // check if ghost is stuck moving left and right on 9th row
+        if (ghost.y === tileSize*9 && ghost.direction != 'U' && ghost.direction != 'D') {
+            ghost.updateDirection('U'); // force ghost to move up
+        }
+
+        ghost.x += ghost.velocityX;
+        ghost.y += ghost.velocityY;
+
+        for (let wall of walls.values()) {
+            if (collision(ghost, wall) 
+                || ghost.x <= 0 // left side of screen
+                || ghost.x + ghost.width >= boardWidth // right side of screen
+            ) {
+                // take a step back and change to random direction
+                ghost.x -= ghost.velocityX;
+                ghost.y -= ghost.velocityY;
+                const newDirection = directions[Math.floor(Math.random() * 4)];
+                ghost.updateDirection(newDirection);
+            }
         }
     }
 }
