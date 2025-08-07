@@ -38,6 +38,10 @@ const ghosts = new Set();
 let pacman;
 const directions = ['U', 'D', 'L', 'R'];
 
+let score = 0;
+let lives = 3;
+let gameOver = false;
+
 //images
 let blueGhostImage;
 let orangeGhostImage;
@@ -59,12 +63,16 @@ window.onload = function() {
 
     // assign random direction to ghosts
     for (let ghost of ghosts.values()) {
-        const newDirection = directions[Math.floor(Math.random() * 4)]; // 0-3
-        ghost.updateDirection(newDirection);
+        ghost.updateDirection(newDirection());
     }
 
     update();
     addEventListener('keyup', movePacman); 
+}
+
+// get random direction
+function newDirection() {
+    return directions[Math.floor(Math.random() * 4)];
 }
 
 // load images for game
@@ -148,6 +156,9 @@ function loadMap() {
 
 // update game layout
 function update() {
+    if (gameOver) {
+        return;
+    }
     move();
     draw();
     setTimeout(update, 50); // update at 20 FPS, 1 second = 1000 ms, 1000/20 = 50ms
@@ -173,6 +184,16 @@ function draw() {
     for (let food of foods.values()) {
         context.fillRect(food.x, food.y, food.width, food.height);
     }
+
+    // score
+    context.fillStyle = "white";
+    context.font = "14px sans-serif";
+    if (gameOver) {
+        context.fillText("Game Over: " + String(score), tileSize/2, tileSize/2);
+    }
+    else {
+        context.fillText("x" + String(lives) + " " + String(score), tileSize/2, tileSize/2);
+    }
 }
 
 // update x and y position of Pacman
@@ -180,9 +201,16 @@ function move() {
     pacman.x += pacman.velocityX;
     pacman.y += pacman.velocityY;
 
+     if (pacman.direction == 'L' && pacman.x <= 0) { // moves past left side to reappear on right side
+        pacman.x = boardWidth;
+     }
+     else if (pacman.direction == 'R' && pacman.x + pacman.width >= boardWidth) { // moves past right side to reappear on left side
+        pacman.x = 0;
+     }
+
     // check wall collisions
     for (let wall of walls.values()) {
-        if (collision(pacman, wall)) {
+        if (collision(pacman, wall)) {        
             pacman.x -= pacman.velocityX;
             pacman.y -= pacman.velocityY;
             break;
@@ -191,6 +219,16 @@ function move() {
 
     for (let ghost of ghosts.values()) {
 
+        // check ghost and pacman collision
+        if (collision(ghost, pacman)) {
+            lives -= 1;
+            resetPositions();
+            if (lives == 0) {
+                gameOver = true;
+                return;
+            }
+        }
+    
         // check if ghost is stuck moving left and right on 9th row
         if (ghost.y === tileSize*9 && ghost.direction != 'U' && ghost.direction != 'D') {
             ghost.updateDirection('U'); // force ghost to move up
@@ -207,15 +245,40 @@ function move() {
                 // take a step back and change to random direction
                 ghost.x -= ghost.velocityX;
                 ghost.y -= ghost.velocityY;
-                const newDirection = directions[Math.floor(Math.random() * 4)];
-                ghost.updateDirection(newDirection);
+                ghost.updateDirection(newDirection());
             }
         }
+    }
+
+    // food collision
+    let foodEaten = null;
+    for (let food of foods.values()) {
+        if (collision(pacman, food)) {
+            foodEaten = food;
+            score += 10;
+            break;
+        }
+    }
+    foods.delete(foodEaten);
+
+    // all food eaten, go to next level
+    if (foods.size == 0) {
+        loadMap();
+        resetPositions();
     }
 }
 
 // move Pacman based on key press
 function movePacman(e) {
+    if (gameOver) { // reset game
+        loadMap();
+        resetPositions();
+        lives = 3;
+        score = 0;
+        gameOver = false;
+        update();
+        return;
+    }
     if (e.code == 'ArrowUp' || e.code == 'KeyW') { // up
         pacman.updateDirection('U');
     }
@@ -251,6 +314,18 @@ function collision(a, b) {
             a.x + a.width > b.x &&
             a.y < b.y + b.height &&
             a.y + a.height > b.y;
+}
+
+// reset all ghost and pacman positions
+function resetPositions() {
+    pacman.reset();
+    pacman.velocityX = 0;
+    pacman.velocityY = 0;
+
+    for (let ghost of ghosts.values()) {
+        ghost.reset();
+        ghost.updateDirection(newDirection());
+    }
 }
 
 // represents each tile on game board
@@ -307,6 +382,11 @@ class Block {
             this.velocityX = tileSize/4;
             this.velocityY = 0;
         }
-
+    }
+    
+    // reset to original x and y position
+    reset() {
+        this.x = this.startX;
+        this.y = this.startY;
     }
 }
